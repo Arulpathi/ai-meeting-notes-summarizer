@@ -96,10 +96,18 @@ app.post("/api/send", async (req, res) => {
       sgTransport({ auth: { api_key: SENDGRID_API_KEY } })
     );
 
+    
     // --- Convert summary Markdown → HTML ---
     let htmlSummary = summary
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Bold
-
+    // Convert headings
+  htmlSummary = htmlSummary
+  .replace(/^###### (.*)$/gm, '<h6>$1</h6>')
+  .replace(/^##### (.*)$/gm, '<h5>$1</h5>')
+  .replace(/^#### (.*)$/gm, '<h4>$1</h4>')
+  .replace(/^### (.*)$/gm, '<h3>$1</h3>')
+  .replace(/^## (.*)$/gm, '<h2>$1</h2>')
+  .replace(/^# (.*)$/gm, '<h1>$1</h1>');
     // Wrap all bullet points inside a single <ul>
     htmlSummary = htmlSummary.replace(/(?:^|\n)- (.*)/g, '<li>$1</li>');
     if (htmlSummary.includes('<li>')) {
