@@ -84,7 +84,9 @@ app.post("/api/send", async (req, res) => {
     const { to, subject, summary } = req.body || {};
     if (!to || !summary) return res.status(400).json({ error: "Missing 'to' or 'summary'." });
 
-    const recipients = Array.isArray(to) ? to : String(to).split(",").map(s => s.trim()).filter(Boolean);
+    const recipients = Array.isArray(to)
+      ? to
+      : String(to).split(",").map(s => s.trim()).filter(Boolean);
     if (recipients.length === 0) return res.status(400).json({ error: "No recipient emails provided." });
 
     const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
@@ -93,16 +95,24 @@ app.post("/api/send", async (req, res) => {
     const transporter = nodemailer.createTransport(
       sgTransport({ auth: { api_key: SENDGRID_API_KEY } })
     );
-    const htmlSummary = summary
-  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
-  .replace(/^-\s(.*)$/gm, '<li>$1</li>')            // Bullet points
-  .replace(/\n{2,}/g, '</p><p>')                    // Paragraph breaks
-  .replace(/\n/g, '<br>');
 
-const emailHtml = `<div style="font-family: Arial, sans-serif; font-size: 14px;">
-  <p>${htmlSummary.replace(/(<li>.*?<\/li>)/g, '<ul>$1</ul>')}</p>
-</div>`;
+    // --- Convert summary Markdown → HTML ---
+    let htmlSummary = summary
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Bold
 
+    // Wrap all bullet points inside a single <ul>
+    htmlSummary = htmlSummary.replace(/(?:^|\n)- (.*)/g, '<li>$1</li>');
+    if (htmlSummary.includes('<li>')) {
+      htmlSummary = `<ul>${htmlSummary}</ul>`;
+    }
+
+    // Convert paragraph breaks
+    htmlSummary = htmlSummary.replace(/\n{2,}/g, '</p><p>');
+
+    // Wrap everything in <p> and preserve line breaks
+    htmlSummary = `<p>${htmlSummary.replace(/\n/g, '<br>')}</p>`;
+
+    const emailHtml = `<div style="font-family: Arial, sans-serif; font-size: 14px;">${htmlSummary}</div>`;
 
     const mailOptions = {
       from: process.env.SMTP_FROM || "no-reply@example.com",
@@ -116,6 +126,7 @@ const emailHtml = `<div style="font-family: Arial, sans-serif; font-size: 14px;"
     const result = await transporter.sendMail(mailOptions);
     console.log("Email sent:", result);
     res.json({ ok: true, messageId: result.messageId });
+
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Failed to send email.", details: String(e) });
