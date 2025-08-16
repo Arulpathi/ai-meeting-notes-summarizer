@@ -10,7 +10,7 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_MODEL
-        value: "llama-3.1-70b-versatile"
+        value: "openai/gpt-oss-20b"
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
