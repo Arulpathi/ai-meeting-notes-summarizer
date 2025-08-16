@@ -25,7 +25,9 @@
 
   <div class="row">
     <label for="meeting-notes">Meeting Notes</label>
-<input id="meeting-notes" type="text" name="notes" />
+<label for="fileUpload">Upload a file:</label>
+<input type="file" id="fileUpload" name="fileUpload">
+<button onclick="uploadFile()">Upload</button>
 
     <div class="muted">Or paste your transcript below.</div>
   </div>
