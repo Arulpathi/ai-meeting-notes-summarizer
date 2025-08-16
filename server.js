@@ -1,4 +1,3 @@
-
 import express from "express";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
@@ -23,41 +22,29 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
 });
 
-// Summarize via Groq (OpenAI-compatible API)
+// Summarize endpoint
 app.post("/api/summarize", async (req, res) => {
   try {
     const { text, prompt } = req.body || {};
-    if (!text || !text.trim()) {
-      return res.status(400).json({ error: "No transcript text provided." });
-    }
+    if (!text || !text.trim()) return res.status(400).json({ error: "No transcript text provided." });
 
     const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: "Server missing GROQ_API_KEY." });
-    }
+    if (!apiKey) return res.status(500).json({ error: "Server missing GROQ_API_KEY." });
 
-    // Model can be overridden in env; default to a strong general model
     const model = process.env.GROQ_MODEL || "llama-3.1-70b-versatile";
 
-    // Build user content
     const instruction = prompt && prompt.trim().length > 0
       ? prompt.trim()
-      : "Summarize succinctly. Include: Executive bullets, Action Items (with owners & due dates if present), Key Decisions, Risks/Questions, and Next Steps.";
+      : "Summarize succinctly. Include: Executive bullets, Action Items, Key Decisions, Risks/Questions, Next Steps.";
 
     const system = `You are an assistant that turns raw meeting/call transcripts into clean, structured summaries.
 - Respect the user's custom instruction if provided.
 - Keep it concise and accurate.
 - Prefer bullet points.
 - If specific data (owner/due date) is missing, don't invent it.
-- Output clean, readable Markdown.
-`;
+- Output clean, readable Markdown.`;
 
-    const userContent = `Custom instruction (if any): ${instruction}
-
-Transcript:
-"""
-${text}
-"""`;
+    const userContent = `Custom instruction (if any): ${instruction}\n\nTranscript:\n"""\n${text}\n"""`;
 
     const body = {
       model,
@@ -96,27 +83,15 @@ ${text}
 app.post("/api/send", async (req, res) => {
   try {
     const { to, subject, summary } = req.body || {};
-    if (!to || !summary) {
-      return res.status(400).json({ error: "Missing 'to' or 'summary'." });
-    }
+    if (!to || !summary) return res.status(400).json({ error: "Missing 'to' or 'summary'." });
 
     const recipients = Array.isArray(to)
       ? to
       : String(to).split(",").map(s => s.trim()).filter(Boolean);
 
-    if (recipients.length === 0) {
-      return res.status(400).json({ error: "No recipient emails provided." });
-    }
+    if (recipients.length === 0) return res.status(400).json({ error: "No recipient emails provided." });
 
-    // Prefer SMTP via environment variables.
-    const {
-      SMTP_HOST,
-      SMTP_PORT,
-      SMTP_USER,
-      SMTP_PASS,
-      SMTP_FROM,
-      SMTP_SECURE
-    } = process.env;
+    const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, SMTP_SECURE } = process.env;
 
     if (!SMTP_HOST || !SMTP_PORT || !SMTP_FROM) {
       return res.status(500).json({ error: "Server missing SMTP configuration (SMTP_HOST, SMTP_PORT, SMTP_FROM)." });
@@ -126,7 +101,7 @@ app.post("/api/send", async (req, res) => {
       host: SMTP_HOST,
       port: Number(SMTP_PORT),
       secure: String(SMTP_SECURE || "").toLowerCase() === "true",
-      auth: (SMTP_USER && SMTP_PASS) ? { user: SMTP_USER, pass: SMTP_PASS } : undefined
+      auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined
     });
 
     const mailOptions = {
@@ -134,7 +109,7 @@ app.post("/api/send", async (req, res) => {
       to: recipients.join(","),
       subject: subject || "Meeting Summary",
       text: summary,
-      html: `<pre style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: pre-wrap;">${summary.replace(/</g, "&lt;")}</pre>`
+      html: `<pre style="font-family: monospace; white-space: pre-wrap;">${summary.replace(/</g, "&lt;")}</pre>`
     };
 
     const result = await transporter.sendMail(mailOptions);
@@ -151,5 +126,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

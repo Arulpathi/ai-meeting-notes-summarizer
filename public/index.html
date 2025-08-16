@@ -6,150 +6,197 @@
   <title>AI Meeting Notes Summarizer</title>
   <style>
     body {
-      font-family: "Segoe UI", Arial, sans-serif;
-      background: linear-gradient(135deg, #e3f2fd, #fce4ec);
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 40px;
-      min-height: 100vh;
-    }
-
-    .container {
-      background: #fff;
-      padding: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-      width: 100%;
-      max-width: 700px;
-    }
-
-    h1 {
-      text-align: center;
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      background: #f0f2f5;
       color: #333;
-      margin-bottom: 1.5rem;
     }
-
+    h1 {
+      color: #007bff;
+    }
     label {
-      font-weight: 600;
+      font-weight: bold;
       display: block;
-      margin-bottom: 0.5rem;
+      margin: 0.5rem 0 0.2rem 0;
     }
-
-    input[type="file"] {
-      margin: 10px 0;
-    }
-
-    textarea {
+    input[type="text"], input[type="email"], textarea {
       width: 100%;
-      height: 180px;
-      margin-top: 0.5rem;
+      padding: 8px;
       margin-bottom: 1rem;
-      padding: 12px;
-      font-size: 15px;
-      border-radius: 8px;
+      border-radius: 4px;
       border: 1px solid #ccc;
-      resize: vertical;
-      background: #fafafa;
+      font-size: 14px;
+      box-sizing: border-box;
     }
-
     button {
-      padding: 12px 20px;
-      margin: 8px 5px 0 0;
+      padding: 10px 16px;
+      margin: 5px 0;
       background: #007bff;
-      border: none;
       color: white;
-      border-radius: 8px;
+      border: none;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 15px;
-      transition: background 0.3s ease;
+      font-size: 14px;
     }
-
     button:hover {
       background: #0056b3;
     }
-
     #summary {
-      margin-top: 1rem;
-      padding: 15px;
-      border: 1px solid #ddd;
-      background: #fefefe;
-      border-radius: 8px;
-      min-height: 120px;
-      font-size: 15px;
-      line-height: 1.5;
+      background: #fff;
+      padding: 12px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      min-height: 150px;
       white-space: pre-wrap;
+      overflow: auto;
     }
-
-    h3 {
-      margin-top: 1.5rem;
-      margin-bottom: 0.5rem;
-      color: #444;
+    .row {
+      margin-bottom: 1rem;
+    }
+    .muted {
+      font-size: 0.9em;
+      color: #666;
+    }
+    @media (min-width: 900px) {
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>AI Meeting Notes Summarizer</h1>
+  <h1>AI Meeting Notes Summarizer & Sharer</h1>
 
-    <label for="fileInput">Upload meeting notes:</label>
-    <input type="file" id="fileInput">
-    <button id="uploadBtn">Upload</button>
-
-    <!-- Transcript Area -->
-    <h3>Transcript:</h3>
-    <textarea id="transcript" placeholder="Paste transcript here..."></textarea>
-
-    <!-- Summarize Button -->
-    <button id="summarizeBtn">Summarize</button>
-
-    <!-- Summary Output -->
-    <h3>Summary:</h3>
-    <div id="summary">Your summary will appear here...</div>
+  <div class="row">
+    <label for="fileInput">Upload meeting notes (.txt):</label>
+    <input type="file" id="fileInput" accept=".txt" />
+    <button id="uploadBtn">Load File</button>
+    <div class="muted">Or paste your transcript below.</div>
   </div>
 
-  <script>
-    const fileInput = document.getElementById("fileInput");
-    const uploadBtn = document.getElementById("uploadBtn");
-    const transcriptEl = document.getElementById("transcript");
-    const summarizeBtn = document.getElementById("summarizeBtn");
-    const summaryEl = document.getElementById("summary");
+  <div class="row">
+    <label for="transcript">Transcript:</label>
+    <textarea id="transcript" placeholder="Paste transcript here..."></textarea>
+  </div>
 
-    // Handle File Upload
-    uploadBtn.addEventListener("click", async () => {
-      const file = fileInput.files?.[0];
-      if (!file) {
-        alert("Please select a file first.");
-        return;
-      }
-      const text = await file.text();
-      transcriptEl.value = text;
+  <div class="row">
+    <label for="prompt">Custom instruction (optional):</label>
+    <input id="prompt" type="text" placeholder='e.g., "Summarize in bullet points for executives" or "Highlight only action items"' />
+  </div>
+
+  <div class="row">
+    <button id="summarizeBtn">Generate Summary</button>
+    <span id="genStatus" class="muted"></span>
+  </div>
+
+  <div class="row">
+    <label for="summary">Summary (editable):</label>
+    <div id="summary" contenteditable="true"></div>
+  </div>
+
+  <div class="row grid">
+    <div>
+      <label for="emails">Recipients (comma-separated emails):</label>
+      <input id="emails" type="text" placeholder="alice@example.com, bob@example.com" />
+    </div>
+    <div>
+      <label for="subject">Subject (optional):</label>
+      <input id="subject" type="text" placeholder="Meeting Summary" />
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="sendBtn">Send Summary via Email</button>
+    <span id="sendStatus" class="muted"></span>
+  </div>
+
+  <hr/>
+  <div class="row">
+    <p class="muted">Backend health: <code id="health">checking…</code></p>
+  </div>
+
+<script>
+const fileInput = document.getElementById("fileInput");
+const uploadBtn = document.getElementById("uploadBtn");
+const transcriptEl = document.getElementById("transcript");
+const promptEl = document.getElementById("prompt");
+const summarizeBtn = document.getElementById("summarizeBtn");
+const summaryEl = document.getElementById("summary");
+const emailsEl = document.getElementById("emails");
+const subjectEl = document.getElementById("subject");
+const sendBtn = document.getElementById("sendBtn");
+const genStatus = document.getElementById("genStatus");
+const sendStatus = document.getElementById("sendStatus");
+const healthEl = document.getElementById("health");
+
+// Load file
+uploadBtn.addEventListener("click", async () => {
+  const file = fileInput.files?.[0];
+  if (!file) { alert("Please select a file first."); return; }
+  const text = await file.text();
+  transcriptEl.value = text;
+});
+
+// Generate summary
+summarizeBtn.addEventListener("click", async () => {
+  const text = transcriptEl.value.trim();
+  const prompt = promptEl.value.trim();
+  if (!text) { alert("Please provide transcript text or upload a .txt file."); return; }
+  genStatus.textContent = "Generating…";
+
+  try {
+    const res = await fetch("/api/summarize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, prompt })
     });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to summarize");
+    summaryEl.innerText = data.summary || "No summary generated.";
+    genStatus.textContent = "Done.";
+  } catch (err) {
+    console.error(err);
+    genStatus.textContent = "Error: " + err.message;
+    alert("Failed to generate summary. See console for details.");
+  }
+});
 
-    // Handle Summarize
-    summarizeBtn.addEventListener("click", async () => {
-      const transcript = transcriptEl.value.trim();
-      if (!transcript) {
-        alert("Please upload or paste a transcript first.");
-        return;
-      }
+// Send email
+sendBtn.addEventListener("click", async () => {
+  const summary = summaryEl.innerText.trim();
+  const to = emailsEl.value.trim();
+  const subject = subjectEl.value.trim();
+  if (!summary || !to) { alert("Please provide recipient emails and a summary."); return; }
+  sendStatus.textContent = "Sending…";
 
-      try {
-        const res = await fetch("/summarize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcript })
-        });
-
-        if (!res.ok) throw new Error("Failed to summarize");
-
-        const data = await res.json();
-        summaryEl.innerText = data.summary || "No summary generated.";
-      } catch (err) {
-        console.error(err);
-        summaryEl.innerText = "⚠️ Error generating summary.";
-      }
+  try {
+    const res = await fetch("/api/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, subject, summary })
     });
-  </script>
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to send email");
+    sendStatus.textContent = "Email sent ✔";
+  } catch (err) {
+    console.error(err);
+    sendStatus.textContent = "Error: " + err.message;
+    alert("Failed to send email. See console for details.");
+  }
+});
+
+// Backend health
+(async () => {
+  try {
+    const r = await fetch("/api/health");
+    const d = await r.json();
+    healthEl.textContent = d.ok ? "OK" : "Not OK";
+  } catch {
+    healthEl.textContent = "Unavailable";
+  }
+})();
+</script>
 </body>
 </html>
