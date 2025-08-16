@@ -23,19 +23,18 @@ app.get("/api/health", (req, res) => {
 });
 
 // Summarize endpoint
+// Summarize endpoint
 app.post("/api/summarize", async (req, res) => {
   try {
     const { text, prompt } = req.body || {};
-    if (!text || !text.trim()) return res.status(400).json({ error: "No transcript text provided." });
+    if (!text?.trim()) return res.status(400).json({ error: "No transcript text provided." });
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return res.status(500).json({ error: "Server missing GROQ_API_KEY." });
 
     const model = process.env.GROQ_MODEL || "llama-3.1-70b-versatile";
 
-    const instruction = prompt && prompt.trim().length > 0
-      ? prompt.trim()
-      : "Summarize succinctly. Include: Executive bullets, Action Items, Key Decisions, Risks/Questions, Next Steps.";
+    const instruction = prompt?.trim() || "Summarize succinctly. Include: Executive bullets, Action Items, Key Decisions, Risks/Questions, Next Steps.";
 
     const system = `You are an assistant that turns raw meeting/call transcripts into clean, structured summaries.
 - Respect the user's custom instruction if provided.
@@ -46,31 +45,18 @@ app.post("/api/summarize", async (req, res) => {
 
     const userContent = `Custom instruction (if any): ${instruction}\n\nTranscript:\n"""\n${text}\n"""`;
 
-    const body = {
-      model,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: userContent }
-      ],
-      temperature: 0.2,
-      stream: false
-    };
+    const body = { model, messages: [{ role: "system", content: system }, { role: "user", content: userContent }], temperature: 0.2, stream: false };
 
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
 
-    if (!resp.ok) {
-      const errText = await resp.text();
-      return res.status(resp.status).json({ error: "Groq API error", details: errText });
-    }
-
     const data = await resp.json();
+
+    if (!resp.ok) return res.status(resp.status).json({ error: "Groq API error", details: data });
+
     const content = data?.choices?.[0]?.message?.content || "";
     res.json({ summary: content });
   } catch (e) {
@@ -78,6 +64,7 @@ app.post("/api/summarize", async (req, res) => {
     res.status(500).json({ error: "Unexpected server error.", details: String(e) });
   }
 });
+
 
 // Email sending
 app.post("/api/send", async (req, res) => {
