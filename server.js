@@ -93,13 +93,23 @@ app.post("/api/send", async (req, res) => {
     const transporter = nodemailer.createTransport(
       sgTransport({ auth: { api_key: SENDGRID_API_KEY } })
     );
+    const htmlSummary = summary
+  .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+  .replace(/^-\s(.*)$/gm, '<li>$1</li>')            // Bullet points
+  .replace(/\n{2,}/g, '</p><p>')                    // Paragraph breaks
+  .replace(/\n/g, '<br>');
+
+const emailHtml = `<div style="font-family: Arial, sans-serif; font-size: 14px;">
+  <p>${htmlSummary.replace(/(<li>.*?<\/li>)/g, '<ul>$1</ul>')}</p>
+</div>`;
+
 
     const mailOptions = {
       from: process.env.SMTP_FROM || "no-reply@example.com",
       to: recipients.join(","),
       subject: subject || "Meeting Summary",
       text: summary,
-      html: `<pre style="font-family: monospace; white-space: pre-wrap;">${summary.replace(/</g, "&lt;")}</pre>`
+      html: emailHtml
     };
 
     console.log("Sending email via SendGrid...");
